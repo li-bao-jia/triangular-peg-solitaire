@@ -1,3 +1,3 @@
-module peg-solitaire-triangle
+module triangle-peg-solitaire
 
 go 1.22.6

@@ -1,16 +1,37 @@
 package main
 
-import "fmt"
+import (
+	"flag"
+	"fmt"
+)
 
 func main() {
+	var (
+		layer int
+		point int
+	)
+
+	flag.IntVar(&layer, "layer", 0, "棋盘层数")
+	flag.IntVar(&point, "point", 0, "移除棋子编号")
+	flag.Parse()
+
+	if layer < 3 {
+		fmt.Println("棋盘层数不能小于3")
+		return
+	}
+	if point < 1 || point > boardPointTotal(layer) {
+		fmt.Println("移除棋子编号不合法")
+		return
+	}
+
 	// 创建棋盘
-	board := NewBoard(4)
+	board := NewBoard(layer)
 
 	// 打印棋盘
 	board.printBoard()
 
 	// 删除棋子
-	board = delPoint(board, 1)
+	board = delPoint(board, point)
 
 	// 打印棋盘
 	board.printBoard()
@@ -54,13 +75,17 @@ func NewBoard(layer int) Board {
 
 // 初始化棋点
 func initBoardPoints(layer int) []bool {
-	total := (layer + 1) * layer / 2 // 棋点总数
+	total := boardPointTotal(layer) // 棋点总数
 
 	points := make([]bool, total)
 	for i := 0; i < total; i++ {
 		points[i] = true
 	}
 	return points
+}
+
+func boardPointTotal(layer int) int {
+	return (layer + 1) * layer / 2
 }
 
 // 初始化棋盘内容
@@ -164,7 +189,7 @@ func ComSolve(board Board, moveCount int, moves [][3]int) bool {
 
 			// 递归推演下一步
 			if ComSolve(board, moveCount+1, moves) {
-				fmt.Printf("Move %d: %d -> %d -> %d\n", moveCount+1, from+1, over+1, to+1)
+				fmt.Printf("移动步骤 %d: %d -> %d -> %d\n", moveCount+1, from+1, over+1, to+1)
 				return true
 			}
 
@@ -177,7 +202,7 @@ func ComSolve(board Board, moveCount int, moves [][3]int) bool {
 			board.Points[to], board.Points[over], board.Points[from] = false, false, true
 
 			if ComSolve(board, moveCount+1, moves) {
-				fmt.Printf("Move %d: %d -> %d -> %d\n", moveCount+1, to+1, over+1, from+1)
+				fmt.Printf("移动步骤 %d: %d -> %d -> %d\n", moveCount+1, to+1, over+1, from+1)
 				return true
 			}
 
