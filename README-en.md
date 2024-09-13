@@ -1,6 +1,8 @@
 <p align="center">Triangular Peg Solitaire</p>
 <p align="center">Automatically generate N-layer triangular peg solitaire boards, remove any peg, calculate whether there is a solution, and provide the correct steps to solve the puzzle.</p>
 
+### English | [简体中文](./README.md)
+
 ### Overview
 - While playing triangular peg solitaire, I often remove a random peg and can't determine if there is a solution. Many times, I struggle to find the correct solution, so I created this small tool.
   After removing a peg, I can first compute whether there is a solution. Once confirmed, I can proceed with manual solving. If after trying for a long time, I still can't find the correct solution, I can use this tool to get the correct steps to solve the puzzle.
