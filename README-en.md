@@ -55,3 +55,13 @@ Simulation succeeded
 ```
 
 Follow the steps from Move 1 to N to solve the puzzle. (For example, 7 -> 4 -> 2 means jumping the peg at position 7 over the peg at position 4, landing at position 2).
+
+### Contact Us
+
+- DEVELOPER: BaoJia Li
+
+- QQ: 751818588
+
+- QQ群: 232185834
+
+- EMAIL: livsyitian@163.com
