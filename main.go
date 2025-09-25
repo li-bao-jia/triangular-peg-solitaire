@@ -3,212 +3,110 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"time"
 )
 
 func main() {
 	var (
-		layer int
-		point int
+		layer   int
+		point   int
+		verbose bool
+		help    bool
 	)
 
-	flag.IntVar(&layer, "layer", 0, "棋盘层数")
-	flag.IntVar(&point, "point", 0, "移除棋子编号")
+	flag.IntVar(&layer, "layer", 4, "棋盘层数 (默认: 4)")
+	flag.IntVar(&point, "point", 1, "移除棋子编号 (默认: 1)")
+	flag.BoolVar(&verbose, "verbose", false, "显示详细信息")
+	flag.BoolVar(&help, "help", false, "显示帮助信息")
 	flag.Parse()
 
-	if layer < 3 {
-		fmt.Println("棋盘层数不能小于3")
+	if help {
+		printHelp()
 		return
 	}
-	if point < 1 || point > boardPointTotal(layer) {
-		fmt.Println("移除棋子编号不合法")
-		return
+
+	if err := validateInput(layer, point); err != nil {
+		fmt.Printf("错误: %v\n", err)
+		fmt.Println("使用 -help 查看帮助信息")
+		os.Exit(1)
 	}
+
+	fmt.Printf("=== 三角形孔明棋求解器 ===\n")
+	fmt.Printf("棋盘层数: %d, 移除棋子: %d\n", layer, point)
 
 	// 创建棋盘
 	board := NewBoard(layer)
 
-	// 打印棋盘
-	board.printBoard()
+	if verbose {
+		fmt.Println("初始棋盘:")
+		board.PrintBoard()
+		board.PrintBoardWithNumbers()
+	}
 
 	// 删除棋子
-	board = delPoint(board, point)
+	if err := board.RemovePoint(point); err != nil {
+		fmt.Printf("错误: %v\n", err)
+		os.Exit(1)
+	}
 
-	// 打印棋盘
-	board.printBoard()
+	fmt.Println("移除棋子后的棋盘:")
+	board.PrintBoard()
 
-	// 开始推演
-	ok := ComSolve(board, 0, getBoardMoves(board))
-	if ok {
-		fmt.Println("推演成功")
+	// 开始求解
+	fmt.Println("开始求解...")
+	start := time.Now()
+
+	solver := NewSolver(board)
+	solved := solver.Solve()
+
+	duration := time.Since(start)
+
+	if solved {
+		solver.PrintSolution()
+		fmt.Printf("求解耗时: %v\n", duration)
 	} else {
 		fmt.Println("无解")
+		fmt.Printf("尝试耗时: %v\n", duration)
 	}
 }
 
-type Point struct {
-	Key int  // 棋点索引
-	Use bool // 是否被使用
-}
-
-type Board struct {
-	Layer   int       // 棋盘的层数
-	Points  []bool    // 棋点->状态
-	Content [][]Point // 棋盘内容: 行->列->状态
-}
-
-/**
- * 根据棋盘层参数，创建一个新棋盘
- */
-
-func NewBoard(layer int) Board {
+func validateInput(layer, point int) error {
 	if layer < 3 {
-		panic("三角孔明棋层级不能小于3")
+		return fmt.Errorf("棋盘层数不能小于3，当前: %d", layer)
+	}
+	if layer > 10 {
+		return fmt.Errorf("棋盘层数不建议超过10，当前: %d (计算时间会很长)", layer)
 	}
 
-	// 初始化棋盘
-	return Board{
-		Layer:   layer,
-		Points:  initBoardPoints(layer),
-		Content: initBoardContent(layer),
+	total := BoardPointTotal(layer)
+	if point < 1 || point > total {
+		return fmt.Errorf("移除棋子编号不合法，应在 1-%d 范围内，当前: %d", total, point)
 	}
+
+	return nil
 }
 
-// 初始化棋点
-func initBoardPoints(layer int) []bool {
-	total := boardPointTotal(layer) // 棋点总数
-
-	points := make([]bool, total)
-	for i := 0; i < total; i++ {
-		points[i] = true
-	}
-	return points
+func printHelp() {
+	fmt.Println("三角形孔明棋求解器")
+	fmt.Println()
+	fmt.Println("用法:")
+	fmt.Println("  go run . [选项]")
+	fmt.Println()
+	fmt.Println("选项:")
+	fmt.Println("  -layer int     棋盘层数 (默认: 4, 范围: 3-10)")
+	fmt.Println("  -point int     移除棋子编号 (默认: 1)")
+	fmt.Println("  -verbose       显示详细信息")
+	fmt.Println("  -help          显示此帮助信息")
+	fmt.Println()
+	fmt.Println("示例:")
+	fmt.Println("  go run . -layer 4 -point 2")
+	fmt.Println("  go run . -layer 5 -point 1 -verbose")
+	fmt.Println()
+	fmt.Println("游戏规则:")
+	fmt.Println("  - 棋子只能跳过相邻的棋子到达空位")
+	fmt.Println("  - 被跳过的棋子会被移除")
+	fmt.Println("  - 目标是最终只剩下一个棋子")
 }
 
-func boardPointTotal(layer int) int {
-	return (layer + 1) * layer / 2
-}
 
-// 初始化棋盘内容
-func initBoardContent(layer int) [][]Point {
-	content := make([][]Point, layer)
-
-	total := 0
-	for i := 0; i < layer; i++ {
-		for j := 0; j <= i; j++ {
-			content[i] = append(content[i], Point{total, true})
-
-			total++
-		}
-	}
-	return content
-}
-
-// 删除棋子
-func delPoint(b Board, point int) Board {
-	for i, _ := range b.Points {
-		if i == point-1 {
-			b.Points[i] = false
-		}
-	}
-
-	for i, row := range b.Content {
-		for j, p := range row {
-			if p.Key == point-1 {
-				b.Content[i][j].Use = false
-			}
-		}
-	}
-
-	return b
-}
-
-// 获取跳跃方式（只去向右、向下的跳跃，向左、向上可以通过反向跳跃）
-func getBoardMoves(b Board) [][3]int {
-	moves := [][3]int{}
-
-	for i, row := range b.Content {
-		for j, point := range row {
-			// 向右
-			if j+2 < len(row) {
-				moves = append(moves, [3]int{point.Key, point.Key + 1, point.Key + 2})
-			}
-			// 向下
-			if i+2 <= b.Layer-1 {
-				moves = append(moves, [3]int{
-					point.Key,
-					b.Content[i+1][j].Key,
-					b.Content[i+2][j].Key,
-				})
-				moves = append(moves, [3]int{
-					point.Key,
-					b.Content[i+1][j+1].Key,
-					b.Content[i+2][j+2].Key,
-				})
-			}
-		}
-	}
-	return moves
-}
-
-// 打印棋盘
-func (b *Board) printBoard() {
-	for i := 0; i < b.Layer; i++ {
-		// 打印前面的空格
-		for j := i; j < b.Layer; j++ {
-			fmt.Print(" ")
-		}
-
-		// 打印棋子
-		for _, p := range b.Content[i] {
-			if p.Use {
-				fmt.Print("●" + " ")
-			} else {
-				fmt.Print("○" + " ")
-			}
-		}
-		fmt.Println()
-	}
-}
-
-/**
- * 自动推演解法步骤
- */
-
-func ComSolve(board Board, moveCount int, moves [][3]int) bool {
-	if moveCount == len(board.Points)-2 {
-		return true // 如果只剩一颗棋子，则找到解法
-	}
-
-	for _, move := range moves {
-		from, over, to := move[0], move[1], move[2]
-
-		// 检查是否可以进行该跳跃
-		if board.Points[from] && board.Points[over] && !board.Points[to] {
-			// 执行跳跃
-			board.Points[from], board.Points[over], board.Points[to] = false, false, true
-
-			// 递归推演下一步
-			if ComSolve(board, moveCount+1, moves) {
-				fmt.Printf("移动步骤 %d: %d -> %d -> %d\n", moveCount+1, from+1, over+1, to+1)
-				return true
-			}
-
-			// 撤销跳跃（回溯）
-			board.Points[from], board.Points[over], board.Points[to] = true, true, false
-		}
-
-		// 检查反向跳跃
-		if board.Points[to] && board.Points[over] && !board.Points[from] {
-			board.Points[to], board.Points[over], board.Points[from] = false, false, true
-
-			if ComSolve(board, moveCount+1, moves) {
-				fmt.Printf("移动步骤 %d: %d -> %d -> %d\n", moveCount+1, to+1, over+1, from+1)
-				return true
-			}
-
-			board.Points[to], board.Points[over], board.Points[from] = true, true, false
-		}
-	}
-
-	return false
-}
